@@ -1,24 +1,20 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import './MarkdownPreview.css'
+
 interface MarkdownPreviewProps {
   content: string
 }
 
 function MarkdownPreview({ content }: MarkdownPreviewProps) {
   return (
-    <div
-      style={{
-        marginTop: '30px',
-        padding: '20px',
-        border: '1px solid #444',
-        borderRadius: '8px',
-        whiteSpace: 'pre-wrap',
-        minHeight: '250px',
-        overflow: 'auto'
-      }}
-    >
-      <h3>Markdown Preview</h3>
+    <section className="markdown-preview">
+      <h2>Markdown Preview</h2>
 
-      <pre>{content}</pre>
-    </div>
+      <div className="markdown-content">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+      </div>
+    </section>
   )
 }
 
