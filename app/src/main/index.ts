@@ -92,6 +92,35 @@ ipcMain.handle('dialog:openMarkdownFile', async () => {
 
   return result.filePaths[0]
 })
+
+ipcMain.handle('dialog:saveDocxFile', async () => {
+  const result = await dialog.showSaveDialog({
+    title: 'Save Word Document',
+    defaultPath: 'Professional.docx',
+    filters: [{ name: 'Word Documents', extensions: ['docx'] }]
+  })
+
+  if (result.canceled) {
+    return null
+  }
+
+  return result.filePath
+})
+
+ipcMain.handle('file:writeDocx', async (_, filePath: string, data: Uint8Array) => {
+  try {
+    await fs.writeFile(filePath, Buffer.from(data))
+
+    console.log('DOCX file written successfully')
+    console.log('Output path:', filePath)
+
+    return true
+  } catch (error) {
+    console.error('Unable to write DOCX file:', error)
+    return false
+  }
+})
+
 ipcMain.handle('file:readMarkdown', async (_, filePath: string) => {
   try {
     console.log('Reading Markdown file:', filePath)

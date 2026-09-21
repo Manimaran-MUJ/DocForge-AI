@@ -4,13 +4,11 @@ class MarkdownService {
   }
 
   async readMarkdownFile(filePath: string): Promise<string | null> {
-    console.log('Calling readMarkdownFile:', filePath)
+    return await window.electronAPI.readMarkdownFile(filePath)
+  }
 
-    const content = await window.electronAPI.readMarkdownFile(filePath)
-
-    console.log('Received markdown content:', content)
-
-    return content
+  async saveDocxFile(): Promise<string | null> {
+    return await window.electronAPI.saveDocxFile()
   }
 }
 
