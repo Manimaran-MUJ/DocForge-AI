@@ -5,6 +5,7 @@ import OptionPanel from '../../components/home/OptionPanel/OptionPanel'
 import MarkdownPreview from '../../components/home/MarkdownPreview/MarkdownPreview'
 import MarkdownService from '../../services/MarkdownService'
 import DocxService from '../../services/DocxService'
+import MarkdownParserService from '../../services/MarkdownParserService'
 
 function Home() {
   const [markdownContent, setMarkdownContent] = useState('')
@@ -23,6 +24,17 @@ function Home() {
     if (content === null) {
       return
     }
+
+    const tree = MarkdownParserService.parse(content)
+
+    console.log(
+      'Markdown AST types:',
+      tree.children.map((node) => ({
+        type: node.type,
+        ordered: node.type === 'list' ? node.ordered : undefined,
+        checked: node.type === 'listItem' ? node.checked : undefined
+      }))
+    )
 
     setSelectedFile(filePath)
     setMarkdownContent(content)
