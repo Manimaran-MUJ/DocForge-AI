@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -133,6 +133,50 @@ ipcMain.handle('file:readMarkdown', async (_, filePath: string) => {
     return content
   } catch (error) {
     console.error('Unable to read markdown file:', error)
+    return null
+  }
+})
+
+ipcMain.handle('file:readImage', async (_, imageUrl: string) => {
+  try {
+    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
+      throw new Error('Only HTTP and HTTPS image URLs are supported.')
+    }
+
+    console.log('Fetching image:', imageUrl)
+
+    const response = await fetch(imageUrl)
+
+    if (!response.ok) {
+      throw new Error(`Unable to fetch image. HTTP status: ${response.status}`)
+    }
+
+    const contentType = response.headers.get('content-type') ?? ''
+
+    if (!contentType.startsWith('image/')) {
+      throw new Error(`URL does not return an image: ${contentType}`)
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const imageData = new Uint8Array(arrayBuffer)
+
+    const image = nativeImage.createFromBuffer(Buffer.from(imageData))
+    const size = image.getSize()
+
+    console.log('Image fetched successfully')
+    console.log('Image type:', contentType)
+    console.log('Image size:', imageData.length)
+    console.log('Image dimensions:', size.width, 'x', size.height)
+
+    return {
+      data: imageData,
+      contentType,
+      width: size.width,
+      height: size.height
+    }
+  } catch (error) {
+    console.error('Unable to read image:', error)
+
     return null
   }
 })

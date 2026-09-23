@@ -3,6 +3,7 @@ import {
   Document,
   ExternalHyperlink,
   HeadingLevel,
+  ImageRun,
   Packer,
   Paragraph,
   Table,
@@ -28,6 +29,8 @@ type PlainTextNode = {
   children?: PlainTextNode[]
 }
 
+type RenderedInlineNode = TextRun | ExternalHyperlink | ImageRun
+
 class DocxService {
   async generateDocx(markdownContent: string): Promise<Uint8Array | null> {
     try {
@@ -48,7 +51,7 @@ class DocxService {
             children.push(
               new Paragraph({
                 heading: headingLevel,
-                children: this.renderInlineNodes(node.children)
+                children: await this.renderInlineNodes(node.children)
               })
             )
 
@@ -58,7 +61,7 @@ class DocxService {
           case 'paragraph': {
             children.push(
               new Paragraph({
-                children: this.renderInlineNodes(node.children)
+                children: await this.renderInlineNodes(node.children)
               })
             )
 
@@ -67,7 +70,7 @@ class DocxService {
 
           case 'list': {
             for (const item of node.children) {
-              const listItemChildren = this.renderListItem(item)
+              const listItemChildren = await this.renderListItem(item)
 
               if (item.checked !== null && item.checked !== undefined) {
                 listItemChildren.unshift(
@@ -104,7 +107,7 @@ class DocxService {
           }
 
           case 'table': {
-            children.push(this.renderTable(node))
+            children.push(await this.renderTable(node))
             break
           }
 
@@ -162,7 +165,7 @@ class DocxService {
     }
   }
 
-  private renderTable(node: MarkdownTable): Table {
+  private async renderTable(node: MarkdownTable): Promise<Table> {
     const rows: MarkdownTableRow[] = node.children ?? []
 
     const columnCount = Math.max(...rows.map((row) => row.children?.length ?? 0), 1)
@@ -175,32 +178,38 @@ class DocxService {
 
     const columnWidths = Array(columnCount).fill(columnWidth)
 
-    const tableRows = rows.map((row: MarkdownTableRow, rowIndex: number) => {
-      const cells: MarkdownTableCell[] = row.children ?? []
+    const tableRows = await Promise.all(
+      rows.map(async (row: MarkdownTableRow, rowIndex: number) => {
+        const cells: MarkdownTableCell[] = row.children ?? []
 
-      return new TableRow({
-        children: Array.from({ length: columnCount }, (_, columnIndex) => {
-          const cell = cells[columnIndex]
+        const tableCells = await Promise.all(
+          Array.from({ length: columnCount }, async (_, columnIndex) => {
+            const cell = cells[columnIndex]
 
-          const alignment = this.getTableAlignment(node.align?.[columnIndex])
+            const alignment = this.getTableAlignment(node.align?.[columnIndex])
 
-          return new TableCell({
-            width: {
-              size: columnWidths[columnIndex],
-              type: 'dxa'
-            },
-            children: [
-              new Paragraph({
-                alignment,
-                children: cell
-                  ? this.renderTableCellContent(cell.children ?? [], rowIndex === 0)
-                  : []
-              })
-            ]
+            return new TableCell({
+              width: {
+                size: columnWidths[columnIndex],
+                type: 'dxa'
+              },
+              children: [
+                new Paragraph({
+                  alignment,
+                  children: cell
+                    ? await this.renderTableCellContent(cell.children ?? [], rowIndex === 0)
+                    : []
+                })
+              ]
+            })
           })
+        )
+
+        return new TableRow({
+          children: tableCells
         })
       })
-    })
+    )
 
     return new Table({
       rows: tableRows,
@@ -227,10 +236,10 @@ class DocxService {
     }
   }
 
-  private renderTableCellContent(
+  private async renderTableCellContent(
     nodes: PhrasingContent[],
     isHeader: boolean
-  ): Array<TextRun | ExternalHyperlink> {
+  ): Promise<RenderedInlineNode[]> {
     if (isHeader) {
       return [
         new TextRun({
@@ -243,7 +252,7 @@ class DocxService {
       ]
     }
 
-    return this.renderInlineNodes(nodes)
+    return await this.renderInlineNodes(nodes)
   }
 
   private renderCodeBlock(code: string): TextRun[] {
@@ -271,15 +280,15 @@ class DocxService {
     return runs
   }
 
-  private renderInlineNodes(
+  private async renderInlineNodes(
     nodes: PhrasingContent[],
     formatting: {
       bold?: boolean
       italics?: boolean
       strike?: boolean
     } = {}
-  ): Array<TextRun | ExternalHyperlink> {
-    const children: Array<TextRun | ExternalHyperlink> = []
+  ): Promise<RenderedInlineNode[]> {
+    const children: RenderedInlineNode[] = []
 
     for (const node of nodes) {
       switch (node.type) {
@@ -296,28 +305,28 @@ class DocxService {
 
         case 'strong':
           children.push(
-            ...this.renderInlineNodes(node.children, {
+            ...(await this.renderInlineNodes(node.children, {
               ...formatting,
               bold: true
-            })
+            }))
           )
           break
 
         case 'emphasis':
           children.push(
-            ...this.renderInlineNodes(node.children, {
+            ...(await this.renderInlineNodes(node.children, {
               ...formatting,
               italics: true
-            })
+            }))
           )
           break
 
         case 'delete':
           children.push(
-            ...this.renderInlineNodes(node.children, {
+            ...(await this.renderInlineNodes(node.children, {
               ...formatting,
               strike: true
-            })
+            }))
           )
           break
 
@@ -333,16 +342,77 @@ class DocxService {
           )
           break
 
-        case 'link':
+        case 'link': {
+          const linkChildren = (
+            await this.renderInlineNodes(node.children, {
+              ...formatting
+            })
+          ).filter((child): child is TextRun => child instanceof TextRun)
+
           children.push(
             new ExternalHyperlink({
               link: node.url,
-              children: this.renderInlineNodes(node.children, {
-                ...formatting
-              }).filter((child): child is TextRun => child instanceof TextRun)
+              children: linkChildren
+            })
+          )
+
+          break
+        }
+
+        case 'image': {
+          const image = await window.electronAPI.readImage(node.url)
+
+          if (!image) {
+            children.push(
+              new TextRun({
+                text: node.alt ? `[Image: ${node.alt}]` : '[Image]',
+                italics: true
+              })
+            )
+
+            break
+          }
+
+          const maxWidth = 600
+          const scale = Math.min(1, maxWidth / image.width)
+
+          const width = Math.round(image.width * scale)
+          const height = Math.round(image.height * scale)
+
+          const imageType =
+            image.contentType === 'image/png'
+              ? 'png'
+              : image.contentType === 'image/jpeg'
+                ? 'jpg'
+                : image.contentType === 'image/gif'
+                  ? 'gif'
+                  : image.contentType === 'image/bmp'
+                    ? 'bmp'
+                    : null
+
+          if (!imageType) {
+            children.push(
+              new TextRun({
+                text: node.alt ? `[Unsupported image: ${node.alt}]` : '[Unsupported image]',
+                italics: true
+              })
+            )
+
+            break
+          }
+
+          children.push(
+            new ImageRun({
+              type: imageType,
+              data: image.data,
+              transformation: {
+                width,
+                height
+              }
             })
           )
           break
+        }
 
         case 'break':
           children.push(
@@ -357,12 +427,12 @@ class DocxService {
     return children
   }
 
-  private renderListItem(item: ListItem): Array<TextRun | ExternalHyperlink> {
-    const children: Array<TextRun | ExternalHyperlink> = []
+  private async renderListItem(item: ListItem): Promise<RenderedInlineNode[]> {
+    const children: RenderedInlineNode[] = []
 
     for (const child of item.children) {
       if (child.type === 'paragraph') {
-        children.push(...this.renderInlineNodes(child.children))
+        children.push(...(await this.renderInlineNodes(child.children)))
       }
     }
 
