@@ -1,3 +1,4 @@
+import mermaid from 'mermaid'
 import {
   AlignmentType,
   Document,
@@ -30,6 +31,12 @@ type PlainTextNode = {
 }
 
 type RenderedInlineNode = TextRun | ExternalHyperlink | ImageRun
+
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: 'strict',
+  theme: 'default'
+})
 
 class DocxService {
   async generateDocx(markdownContent: string): Promise<Uint8Array | null> {
@@ -112,11 +119,29 @@ class DocxService {
           }
 
           case 'code': {
-            children.push(
-              new Paragraph({
-                children: this.renderCodeBlock(node.value)
-              })
-            )
+            if (node.lang?.toLowerCase() === 'mermaid') {
+              const mermaidImage = await this.renderMermaidDiagram(node.value)
+
+              if (mermaidImage) {
+                children.push(
+                  new Paragraph({
+                    children: [mermaidImage]
+                  })
+                )
+              } else {
+                children.push(
+                  new Paragraph({
+                    children: this.renderCodeBlock(node.value)
+                  })
+                )
+              }
+            } else {
+              children.push(
+                new Paragraph({
+                  children: this.renderCodeBlock(node.value)
+                })
+              )
+            }
 
             break
           }
@@ -411,6 +436,7 @@ class DocxService {
               }
             })
           )
+
           break
         }
 
@@ -437,6 +463,148 @@ class DocxService {
     }
 
     return children
+  }
+
+  private async renderMermaidDiagram(code: string): Promise<ImageRun | null> {
+    try {
+      console.log('Rendering Mermaid diagram for DOCX')
+
+      const id = `docforge-mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+      const result = await mermaid.render(id, code)
+
+      const svg = result.svg
+
+      const pngData = await this.convertSvgToPng(svg)
+
+      if (!pngData) {
+        console.error('Unable to convert Mermaid SVG to PNG')
+        return null
+      }
+
+      const maxWidth = 600
+
+      const dimensions = this.getSvgDimensions(svg)
+
+      const scale = Math.min(1, maxWidth / dimensions.width)
+
+      const width = Math.round(dimensions.width * scale)
+      const height = Math.round(dimensions.height * scale)
+
+      console.log('Mermaid diagram rendered:', width, 'x', height)
+
+      return new ImageRun({
+        type: 'png',
+        data: pngData,
+        transformation: {
+          width,
+          height
+        }
+      })
+    } catch (error) {
+      console.error('Unable to render Mermaid diagram:', error)
+
+      return null
+    }
+  }
+
+  private getSvgDimensions(svg: string): {
+    width: number
+    height: number
+  } {
+    const parser = new DOMParser()
+    const document = parser.parseFromString(svg, 'image/svg+xml')
+
+    const svgElement = document.documentElement
+
+    const viewBox = svgElement.getAttribute('viewBox')
+
+    if (viewBox) {
+      const values = viewBox
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number)
+
+      if (
+        values.length === 4 &&
+        Number.isFinite(values[2]) &&
+        Number.isFinite(values[3]) &&
+        values[2] > 0 &&
+        values[3] > 0
+      ) {
+        return {
+          width: values[2],
+          height: values[3]
+        }
+      }
+    }
+
+    const width = Number.parseFloat(svgElement.getAttribute('width') ?? '')
+
+    const height = Number.parseFloat(svgElement.getAttribute('height') ?? '')
+
+    if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      return {
+        width,
+        height
+      }
+    }
+
+    return {
+      width: 800,
+      height: 600
+    }
+  }
+
+  private async convertSvgToPng(svg: string): Promise<Uint8Array | null> {
+    try {
+      const encodedSvg = btoa(unescape(encodeURIComponent(svg)))
+
+      const dataUrl = `data:image/svg+xml;base64,${encodedSvg}`
+
+      const image = new Image()
+
+      const imageLoaded = new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+
+        image.onerror = () => reject(new Error('Unable to load Mermaid SVG image.'))
+      })
+
+      image.src = dataUrl
+
+      await imageLoaded
+
+      const dimensions = this.getSvgDimensions(svg)
+
+      const canvas = document.createElement('canvas')
+
+      canvas.width = Math.ceil(dimensions.width)
+      canvas.height = Math.ceil(dimensions.height)
+
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        throw new Error('Unable to create canvas rendering context.')
+      }
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+      const pngBlob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), 'image/png')
+      })
+
+      if (!pngBlob) {
+        throw new Error('Unable to convert Mermaid diagram to PNG.')
+      }
+
+      const arrayBuffer = await pngBlob.arrayBuffer()
+
+      return new Uint8Array(arrayBuffer)
+    } catch (error) {
+      console.error('Unable to convert SVG to PNG:', error)
+
+      return null
+    }
   }
 
   private getPlainText(node: PlainTextNode): string {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import mermaid from 'mermaid'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import './MarkdownPreview.css'
@@ -12,6 +13,16 @@ interface MarkdownImageProps {
   alt?: string
   title?: string
 }
+
+interface MermaidBlockProps {
+  code: string
+}
+
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: 'strict',
+  theme: 'default'
+})
 
 function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
   const [imageSource, setImageSource] = useState<string | null>(null)
@@ -31,7 +42,9 @@ function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
 
       const image = await window.electronAPI.readImage(src)
 
-      if (cancelled) return
+      if (cancelled) {
+        return
+      }
 
       if (!image) {
         setLoading(false)
@@ -45,6 +58,7 @@ function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
       const base64 = btoa(binary)
 
       setImageSource(`data:${image.contentType};base64,${base64}`)
+
       setLoading(false)
     }
 
@@ -76,6 +90,63 @@ function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
   )
 }
 
+function MermaidBlock({ code }: MermaidBlockProps) {
+  const [svg, setSvg] = useState<string | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const renderDiagram = async () => {
+      try {
+        setError(false)
+        setSvg(null)
+
+        const id = `mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+        const result = await mermaid.render(id, code)
+
+        if (!cancelled) {
+          setSvg(result.svg)
+        }
+      } catch (renderError) {
+        console.error('Unable to render Mermaid diagram:', renderError)
+
+        if (!cancelled) {
+          setError(true)
+        }
+      }
+    }
+
+    void renderDiagram()
+
+    return () => {
+      cancelled = true
+    }
+  }, [code])
+
+  if (error) {
+    return (
+      <pre>
+        <code>{code}</code>
+      </pre>
+    )
+  }
+
+  if (!svg) {
+    return <div>Rendering Mermaid diagram...</div>
+  }
+
+  return (
+    <div
+      className="mermaid-preview"
+      dangerouslySetInnerHTML={{
+        __html: svg
+      }}
+    />
+  )
+}
+
 function MarkdownPreview({ content }: MarkdownPreviewProps) {
   return (
     <section className="markdown-preview">
@@ -85,7 +156,17 @@ function MarkdownPreview({ content }: MarkdownPreviewProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
-            img: MarkdownImage
+            img: MarkdownImage,
+
+            code: ({ className, children }) => {
+              const match = /language-(\w+)/.exec(className ?? '')
+
+              if (match?.[1] === 'mermaid') {
+                return <MermaidBlock code={String(children).replace(/\n$/, '')} />
+              }
+
+              return <code className={className}>{children}</code>
+            }
           }}
         >
           {content}
