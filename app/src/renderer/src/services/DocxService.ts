@@ -15,6 +15,8 @@ import {
 } from 'docx'
 
 import type {
+  Blockquote,
+  List,
   ListItem,
   PhrasingContent,
   Table as MarkdownTable,
@@ -75,42 +77,14 @@ class DocxService {
             break
           }
 
+          case 'blockquote': {
+            children.push(...(await this.renderBlockquote(node, 0)))
+
+            break
+          }
+
           case 'list': {
-            for (const item of node.children) {
-              const listItemChildren = await this.renderListItem(item)
-
-              if (item.checked !== null && item.checked !== undefined) {
-                listItemChildren.unshift(
-                  new TextRun({
-                    text: item.checked ? '☑ ' : '☐ '
-                  })
-                )
-              }
-
-              children.push(
-                new Paragraph({
-                  children: listItemChildren,
-
-                  ...(node.ordered
-                    ? {
-                        numbering: {
-                          reference: 'default-numbering',
-                          level: 0
-                        },
-
-                        indent: {
-                          left: 720,
-                          hanging: 360
-                        }
-                      }
-                    : {
-                        bullet: {
-                          level: 0
-                        }
-                      })
-                })
-              )
-            }
+            children.push(...(await this.renderList(node, 0)))
 
             break
           }
@@ -151,23 +125,17 @@ class DocxService {
         }
       }
 
+      /*
+       * Ordered lists are intentionally NOT defined
+       * through the DOCX numbering system.
+       *
+       * We generate ordered-list prefixes ourselves
+       * as normal TextRuns.
+       *
+       * This prevents Word/LibreOffice from carrying
+       * numbering state between separate Markdown lists.
+       */
       const document = new Document({
-        numbering: {
-          config: [
-            {
-              reference: 'default-numbering',
-              levels: [
-                {
-                  level: 0,
-                  format: 'decimal',
-                  text: '%1.',
-                  alignment: 'left'
-                }
-              ]
-            }
-          ]
-        },
-
         sections: [
           {
             children
@@ -197,13 +165,298 @@ class DocxService {
     }
   }
 
+  private async renderBlockquote(node: Blockquote, depth: number): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = []
+
+    const leftIndent = 720 * (depth + 1)
+
+    for (const child of node.children) {
+      if (child.type === 'paragraph') {
+        paragraphs.push(
+          new Paragraph({
+            children: await this.renderInlineNodes(child.children),
+
+            indent: {
+              left: leftIndent
+            },
+
+            border: {
+              left: {
+                color: '808080',
+                size: 12,
+                space: 8,
+                style: 'single'
+              }
+            }
+          })
+        )
+      }
+
+      if (child.type === 'blockquote') {
+        paragraphs.push(...(await this.renderBlockquote(child, depth + 1)))
+      }
+    }
+
+    return paragraphs
+  }
+
+  /*
+   * Converts a number into:
+   *
+   * 1 -> a
+   * 2 -> b
+   * 3 -> c
+   *
+   * 26 -> z
+   * 27 -> aa
+   */
+  private toLowerAlpha(value: number): string {
+    let result = ''
+    let current = value
+
+    while (current > 0) {
+      current -= 1
+
+      result = String.fromCharCode(97 + (current % 26)) + result
+
+      current = Math.floor(current / 26)
+    }
+
+    return result
+  }
+
+  /*
+   * Converts a number into lowercase Roman numerals.
+   *
+   * 1 -> i
+   * 2 -> ii
+   * 3 -> iii
+   * 4 -> iv
+   */
+  private toLowerRoman(value: number): string {
+    const romanValues: Array<{
+      value: number
+      symbol: string
+    }> = [
+      {
+        value: 1000,
+        symbol: 'm'
+      },
+      {
+        value: 900,
+        symbol: 'cm'
+      },
+      {
+        value: 500,
+        symbol: 'd'
+      },
+      {
+        value: 400,
+        symbol: 'cd'
+      },
+      {
+        value: 100,
+        symbol: 'c'
+      },
+      {
+        value: 90,
+        symbol: 'xc'
+      },
+      {
+        value: 50,
+        symbol: 'l'
+      },
+      {
+        value: 40,
+        symbol: 'xl'
+      },
+      {
+        value: 10,
+        symbol: 'x'
+      },
+      {
+        value: 9,
+        symbol: 'ix'
+      },
+      {
+        value: 5,
+        symbol: 'v'
+      },
+      {
+        value: 4,
+        symbol: 'iv'
+      },
+      {
+        value: 1,
+        symbol: 'i'
+      }
+    ]
+
+    let result = ''
+    let remaining = value
+
+    for (const item of romanValues) {
+      while (remaining >= item.value) {
+        result += item.symbol
+        remaining -= item.value
+      }
+    }
+
+    return result
+  }
+
+  /*
+   * Determines the visible prefix for an ordered
+   * Markdown list based on nesting depth.
+   *
+   * Level 0 -> 1. 2. 3.
+   * Level 1 -> a. b. c.
+   * Level 2 -> i. ii. iii.
+   * Level 3 -> 1. 2. 3.
+   *
+   * This pattern can continue safely for deeper levels.
+   */
+  private getOrderedListPrefix(index: number, depth: number): string {
+    const level = depth % 4
+
+    switch (level) {
+      case 0:
+        return `${index}. `
+
+      case 1:
+        return `${this.toLowerAlpha(index)}. `
+
+      case 2:
+        return `${this.toLowerRoman(index)}. `
+
+      case 3:
+      default:
+        return `${index}. `
+    }
+  }
+
+  private async renderList(node: List, depth: number): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = []
+
+    for (let index = 0; index < node.children.length; index += 1) {
+      const item = node.children[index]
+
+      const paragraph = await this.renderListItemParagraph(
+        item,
+        node.ordered === true,
+        depth,
+        index + 1
+      )
+
+      if (paragraph) {
+        paragraphs.push(paragraph)
+      }
+
+      /*
+       * Render nested lists after the parent
+       * list-item paragraph.
+       *
+       * Every nested list starts its own numbering
+       * sequence because its index is calculated
+       * locally inside renderList().
+       */
+      for (const child of item.children) {
+        if (child.type === 'list') {
+          paragraphs.push(...(await this.renderList(child, depth + 1)))
+        }
+      }
+    }
+
+    return paragraphs
+  }
+
+  private async renderListItemParagraph(
+    item: ListItem,
+    ordered: boolean,
+    depth: number,
+    itemIndex: number
+  ): Promise<Paragraph | null> {
+    for (const child of item.children) {
+      if (child.type !== 'paragraph') {
+        continue
+      }
+
+      const inlineChildren = await this.renderInlineNodes(child.children)
+
+      const isTaskItem = item.checked !== null && item.checked !== undefined
+
+      /*
+       * Task list items:
+       *
+       * ☑ Completed task
+       * ☐ Pending task
+       *
+       * No additional bullet is added.
+       */
+      if (isTaskItem) {
+        inlineChildren.unshift(
+          new TextRun({
+            text: item.checked ? '☑ ' : '☐ '
+          })
+        )
+      }
+
+      /*
+       * Ordered list:
+       *
+       * We create the number/letter as normal text
+       * instead of using DOCX numbering.
+       */
+      if (ordered) {
+        const prefix = this.getOrderedListPrefix(itemIndex, depth)
+
+        inlineChildren.unshift(
+          new TextRun({
+            text: prefix
+          })
+        )
+
+        return new Paragraph({
+          children: inlineChildren,
+
+          indent: {
+            left: 720 * (depth + 1)
+          }
+        })
+      }
+
+      /*
+       * Unordered list.
+       *
+       * Task lists don't get a bullet because their
+       * checkbox itself acts as the marker.
+       */
+      return new Paragraph({
+        children: inlineChildren,
+
+        ...(isTaskItem
+          ? {}
+          : {
+              bullet: {
+                level: Math.min(depth, 3)
+              }
+            }),
+
+        indent: {
+          left: 720 * (depth + 1),
+          hanging: 360
+        }
+      })
+    }
+
+    return null
+  }
+
   private async renderTable(node: MarkdownTable): Promise<Table> {
     const rows: MarkdownTableRow[] = node.children ?? []
 
     const columnCount = Math.max(...rows.map((row) => row.children?.length ?? 0), 1)
 
-    // Word page content width with normal margins.
-    // 9360 twips ≈ 6.5 inches.
     const totalWidth = 9360
 
     const columnWidth = Math.floor(totalWidth / columnCount)
@@ -414,7 +667,6 @@ class DocxService {
             children.push(
               new TextRun({
                 text: node.alt ? `[Image: ${node.alt}]` : '[Image]',
-
                 italics: true
               })
             )
@@ -445,7 +697,6 @@ class DocxService {
             children.push(
               new TextRun({
                 text: node.alt ? `[Unsupported image: ${node.alt}]` : '[Unsupported image]',
-
                 italics: true
               })
             )
@@ -476,18 +727,6 @@ class DocxService {
           )
 
           break
-      }
-    }
-
-    return children
-  }
-
-  private async renderListItem(item: ListItem): Promise<RenderedInlineNode[]> {
-    const children: RenderedInlineNode[] = []
-
-    for (const child of item.children) {
-      if (child.type === 'paragraph') {
-        children.push(...(await this.renderInlineNodes(child.children)))
       }
     }
 

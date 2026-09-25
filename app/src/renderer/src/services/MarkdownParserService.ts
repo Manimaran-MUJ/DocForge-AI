@@ -1,9 +1,10 @@
 import { unified } from 'unified'
 import remarkParse from 'remark-parse'
+import remarkGfm from 'remark-gfm'
 
 class MarkdownParserService {
   parse(markdownContent: string) {
-    const tree = unified().use(remarkParse).parse(markdownContent)
+    const tree = unified().use(remarkParse).use(remarkGfm).parse(markdownContent)
 
     const imageNodes: unknown[] = []
 

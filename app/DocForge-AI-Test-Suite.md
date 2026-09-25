@@ -2,47 +2,30 @@
 
 > Master test file for validating Markdown → Microsoft Word conversion.
 
-\---
+---
 
-## Table of Contents
-
-* [Introduction](#introduction)
-* [Text Formatting](#text-formatting)
-* [Links](#links)
-* [Lists](#lists)
-* [Task Lists](#task-lists)
-* [Blockquotes](#blockquotes)
-* [Code](#code)
-* [Tables](#tables)
-* [Images](#images)
-* [Mermaid Diagrams](#mermaid-diagrams)
-* [Special Characters](#special-characters)
-* [Advanced Markdown](#advanced-markdown)
-* [Conversion Requirements](#conversion-requirements)
-* [Final Test](#final-test)
-
-\---
-
-## Introduction
+# Introduction
 
 DocForge AI converts Markdown documents into professional Microsoft Word documents.
 
 This document intentionally contains many Markdown scenarios so every stage of the conversion engine can be tested.
 
-### Project Goals
+## Project Goals
 
 1. Convert Markdown into a professional Word document.
 2. Preserve document structure.
-3. Generate a table of contents.
-4. Preserve internal links.
-5. Preserve external links.
-6. Render Mermaid diagrams.
-7. Preserve code blocks.
-8. Preserve images.
-9. Preserve tables.
-10. Maintain readable Word formatting.
+3. Preserve external links.
+4. Preserve internal links where supported.
+5. Render Mermaid diagrams.
+6. Preserve code blocks.
+7. Preserve images.
+8. Preserve tables.
+9. Preserve text formatting.
+10. Preserve lists and task lists.
+11. Preserve blockquotes.
+12. Maintain readable Word formatting.
 
-\---
+---
 
 # Text Formatting
 
@@ -80,7 +63,15 @@ This text should remain normal while ~~this portion should be struck through~~.
 
 This paragraph contains **bold**, *italic*, ***bold italic***, ~~strikethrough~~, and `inline code`.
 
-\---
+## Nested Formatting
+
+This is **bold with *italic inside it***.
+
+This is *italic with **bold inside it***.
+
+This is ***bold italic with `inline code` inside it***.
+
+---
 
 # Links
 
@@ -96,7 +87,7 @@ Visit [Electron](https://www.electronjs.org/).
 
 ## Link with Title
 
-[OpenAI](https://openai.com/)
+[OpenAI](https://openai.com/ "OpenAI website")
 
 ## Automatic URL
 
@@ -114,7 +105,7 @@ Go to the [Code section](#code).
 
 Go to the [Final Test](#final-test).
 
-\---
+---
 
 # Lists
 
@@ -135,36 +126,30 @@ Go to the [Final Test](#final-test).
 ## Nested Unordered List
 
 * Frontend
-
   * React
   * TypeScript
   * Vite
   * CSS
 * Backend
-
   * Node.js
   * Express
   * TypeScript
 * Desktop
-
   * Electron
   * Electron Vite
 
 ## Nested Ordered List
 
 1. Development
-
    1. Install dependencies
    2. Write code
    3. Run tests
    4. Build application
 2. Testing
-
    1. Functional testing
    2. Accessibility testing
    3. Performance testing
 3. Release
-
    1. Package application
    2. Create installer
    3. Publish release
@@ -172,57 +157,75 @@ Go to the [Final Test](#final-test).
 ## Mixed Nested Lists
 
 * Development
-
   1. Frontend
   2. Backend
   3. Desktop
 * Testing
-
   * Unit testing
   * Integration testing
   * End-to-end testing
 * Release
-
   1. Build
   2. Package
   3. Deploy
 
-\---
+---
 
 # Task Lists
 
 ## Development Tasks
 
-* \[x] Create Electron application
-* \[x] Add Markdown file picker
-* \[x] Read Markdown files
-* \[x] Render Markdown preview
-* \[x] Add DOCX generation
-* \[x] Add output file selection
-* \[ ] Improve DOCX formatting
-* \[ ] Add table support
-* \[ ] Add image support
-* \[ ] Add Mermaid rendering
-* \[ ] Add automatic TOC generation
+* [x] Create Electron application
+* [x] Add Markdown file picker
+* [x] Read Markdown files
+* [x] Render Markdown preview
+* [x] Add DOCX generation
+* [x] Add automatic Downloads saving
+* [x] Add duplicate filename handling
+* [x] Add table support
+* [x] Add image support
+* [x] Add Mermaid rendering
+* [x] Add blockquote support
+* [ ] Improve advanced DOCX formatting
 
 ## Release Checklist
 
-* \[ ] Run lint
-* \[ ] Run tests
-* \[ ] Build application
-* \[ ] Create installer
-* \[ ] Test installer
-* \[ ] Create GitHub release
+* [ ] Run lint
+* [ ] Run tests
+* [ ] Build application
+* [ ] Create installer
+* [ ] Test installer
+* [ ] Create GitHub release
 
-\---
+---
 
 # Blockquotes
 
+## Simple Blockquote
+
 > This is a simple blockquote.
+
+## Multi-Line Blockquote
 
 > This is a longer blockquote containing multiple lines.
 >
 > Markdown blockquotes should be converted into an appropriate Word paragraph style.
+
+## Blockquote with Bold
+
+> **Important:** This information should appear bold inside the blockquote.
+
+## Blockquote with Italic
+
+> *This sentence should appear italic inside the blockquote.*
+
+## Blockquote with Mixed Formatting
+
+> This blockquote contains **bold text**, *italic text*, ***bold italic text***, ~~strikethrough~~, and `inline code`.
+
+## Blockquote with Link
+
+> Visit [Microsoft](https://www.microsoft.com/) for more information.
 
 ## Nested Blockquote
 
@@ -232,7 +235,7 @@ Go to the [Final Test](#final-test).
 >
 > Back to the main quote.
 
-\---
+---
 
 # Code
 
@@ -252,13 +255,11 @@ function greet(name) {
 }
 
 console.log(greet("DocForge AI"));
-```
 
 ## TypeScript
 
 ```typescript
 interface DocumentOptions {
-  generateToc: boolean;
   preserveLinks: boolean;
   renderMermaid: boolean;
   preserveCodeBlocks: boolean;
@@ -266,7 +267,6 @@ interface DocumentOptions {
 }
 
 const options: DocumentOptions = {
-  generateToc: true,
   preserveLinks: true,
   renderMermaid: true,
   preserveCodeBlocks: true,
@@ -306,7 +306,11 @@ npm run build
 {
   "name": "docforge-ai",
   "version": "1.0.0",
-  "features": \["markdown", "docx", "mermaid", "toc"]
+  "features": [
+    "markdown",
+    "docx",
+    "mermaid"
+  ]
 }
 ```
 
@@ -314,7 +318,7 @@ npm run build
 
 ```java
 public class HelloWorld {
-    public static void main(String\[] args) {
+    public static void main(String[] args) {
         System.out.println("Hello DocForge AI");
     }
 }
@@ -323,58 +327,57 @@ public class HelloWorld {
 ## Python
 
 ```python
-def convert\_markdown(markdown):
+def convert_markdown(markdown):
     print("Converting Markdown to DOCX")
     return True
 
-convert\_markdown("# Hello")
+convert_markdown("# Hello")
 ```
 
-\---
+---
 
 # Tables
 
 ## Basic Table
 
-|Name|Role|Status|
-|-|-|-|
-|Alice|Developer|Active|
-|Bob|Tester|Active|
-|Charlie|Designer|Completed|
+| Name | Role | Status |
+| --- | --- | --- |
+| Alice | Developer | Active |
+| Bob | Tester | Active |
+| Charlie | Designer | Completed |
 
 ## Alignment Table
 
-|Feature|Left|Center|Right|
-|-|:-:|-:|-:|
-|Headings|Yes|Yes|Yes|
-|Lists|Yes|Yes|Yes|
-|Tables|Yes|Yes|Yes|
-|Images|Yes|Yes|Yes|
+| Feature | Left | Center | Right |
+| :--- | :---: | ---: | ---: |
+| Headings | Yes | Yes | Yes |
+| Lists | Yes | Yes | Yes |
+| Tables | Yes | Yes | Yes |
+| Images | Yes | Yes | Yes |
 
 ## Table with Formatting
 
-|Feature|Description|Status|
-|-|-|-|
-|**TOC**|Generate document table of contents|**Planned**|
-|*Links*|Preserve clickable links|**In Progress**|
-|`Code`|Preserve code formatting|**Working**|
-|Mermaid|Render diagrams|Planned|
+| Feature | Description | Status |
+| --- | --- | --- |
+| **Links** | Preserve clickable links | **Working** |
+| *Code* | Preserve code formatting | **Working** |
+| Mermaid | Render diagrams | **Working** |
+| Tables | Convert Markdown tables | **Working** |
 
 ## Complex Table
 
-|Component|Technology|Version|Purpose|
-|-|-|-|-|
-|Frontend|React|19.x|User interface|
-|Language|TypeScript|5.x|Type safety|
-|Desktop|Electron|Latest|Desktop application|
-|Build|Electron Vite|Latest|Development/build|
-|DOCX|docx|Latest|Word generation|
-|Markdown|remark|Latest|Markdown parsing|
+| Component | Technology | Version | Purpose |
+| --- | --- | --- | --- |
+| Frontend | React | 19.x | User interface |
+| Language | TypeScript | 5.x | Type safety |
+| Desktop | Electron | Latest | Desktop application |
+| Build | Electron Vite | Latest | Development/build |
+| DOCX | docx | Latest | Word generation |
+| Markdown | remark | Latest | Markdown parsing |
 
-\---
+---
 
 # Images
-
 
 ## Remote Image
 
@@ -388,7 +391,7 @@ convert\_markdown("# Hello")
 
 ![Architecture Diagram](https://httpbin.org/image/png "DocForge AI Architecture")
 
-\---
+---
 
 # Mermaid Diagrams
 
@@ -401,6 +404,7 @@ flowchart TD
     C --> D[DOCX Renderer]
     D --> E[Word Document]
 ```
+
 ## Application Architecture
 
 ```mermaid
@@ -448,37 +452,37 @@ classDiagram
     MarkdownParserService --> DocxService
 ```
 
-\---
+---
 
 # Horizontal Rules
 
 Content above the rule.
 
-\---
+---
 
 Content below the rule.
 
-\---
+---
 
 # Special Characters
 
-### Mathematical Symbols
+## Mathematical Symbols
 
 ± × ÷ = ≠ ≤ ≥ ∞ √ ∑ ∆ π
 
-### Currency
+## Currency
 
 ₹ $ € £ ¥ ₩
 
-### Arrows
+## Arrows
 
 → ← ↑ ↓ ⇒ ⇐ ⇑ ⇓ ↔
 
-### Symbols
+## Symbols
 
 © ® ™ § ¶ ✓ ✕ ★ ☆
 
-### Unicode
+## Unicode
 
 Hello 世界
 
@@ -490,7 +494,7 @@ Hello 世界
 
 Привет
 
-\---
+---
 
 # Escaping Markdown
 
@@ -498,13 +502,13 @@ These characters should appear literally:
 
 \*Not italic\*
 
-\**Not bold\**
+\**Not bold\*
 
 \# Not a heading
 
-\[Not a link]
+\[Not a link\]
 
-\---
+---
 
 # Advanced Markdown
 
@@ -528,44 +532,37 @@ Some Markdown documents may contain inline HTML.
 
 <div>This is a block-level HTML element.</div>
 
-The converter should decide how unsupported HTML should be handled.
+The converter should handle unsupported HTML gracefully.
 
-\---
+---
 
 # Conversion Requirements
 
 1. Preserve heading hierarchy.
-2. Generate a table of contents when enabled.
-3. Preserve external hyperlinks.
-4. Preserve internal document links.
-5. Preserve bold and italic formatting.
+2. Preserve external hyperlinks.
+3. Preserve internal document links where supported.
+4. Preserve bold and italic formatting.
+5. Preserve strikethrough formatting.
 6. Preserve ordered lists.
 7. Preserve unordered lists.
 8. Preserve nested lists.
 9. Preserve task lists.
-10. Preserve code blocks.
-11. Preserve inline code.
-12. Preserve tables.
-13. Preserve images.
-14. Render Mermaid diagrams.
-15. Preserve Unicode characters.
-16. Maintain readable spacing.
-17. Avoid unnecessary blank pages.
-18. Preserve document structure.
-19. Generate a valid `.docx` file.
-20. Open successfully in Microsoft Word and Google Docs.
+10. Preserve blockquotes.
+11. Preserve code blocks.
+12. Preserve inline code.
+13. Preserve tables.
+14. Preserve images.
+15. Render Mermaid diagrams.
+16. Preserve Unicode characters.
+17. Maintain readable spacing.
+18. Avoid unnecessary blank pages.
+19. Preserve document structure.
+20. Generate a valid `.docx` file.
+21. Save the generated DOCX automatically to the Windows Downloads folder.
+22. Automatically create a unique filename when a file with the same name already exists.
+23. Open successfully in Microsoft Word and Google Docs.
 
-\---
-
-# Conversion Options
-
-* \[x] Generate TOC
-* \[x] Preserve Internal Links
-* \[x] Render Mermaid
-* \[x] Preserve Code Blocks
-* \[x] Preserve Images
-
-\---
+---
 
 # Final Test
 
@@ -573,32 +570,33 @@ This is the final section of the master test document.
 
 ## Final Checklist
 
-* \[ ] Headings converted
-* \[ ] Paragraphs converted
-* \[ ] Bold converted
-* \[ ] Italic converted
-* \[ ] Strikethrough converted
-* \[ ] Links converted
-* \[ ] Internal links preserved
-* \[ ] Bullet lists converted
-* \[ ] Numbered lists converted
-* \[ ] Nested lists converted
-* \[ ] Task lists converted
-* \[ ] Blockquotes converted
-* \[ ] Inline code converted
-* \[ ] Code blocks converted
-* \[ ] Tables converted
-* \[ ] Images converted
-* \[ ] Mermaid diagrams rendered
-* \[ ] Unicode preserved
-* \[ ] TOC generated
-* \[ ] DOCX opens successfully
+* [ ] Headings converted
+* [ ] Paragraphs converted
+* [ ] Bold converted
+* [ ] Italic converted
+* [ ] Strikethrough converted
+* [ ] Links converted
+* [ ] Internal links handled
+* [ ] Bullet lists converted
+* [ ] Numbered lists converted
+* [ ] Nested lists converted
+* [ ] Task lists converted
+* [ ] Blockquotes converted
+* [ ] Blockquote formatting preserved
+* [ ] Inline code converted
+* [ ] Code blocks converted
+* [ ] Tables converted
+* [ ] Images converted
+* [ ] Mermaid diagrams rendered
+* [ ] Unicode preserved
+* [ ] DOCX saved automatically to Downloads
+* [ ] Duplicate filename handled correctly
+* [ ] DOCX opens successfully
 
-\---
+---
 
 # End of DocForge AI Test Suite
 
 **DocForge AI**
 
 > Markdown → Professional Microsoft Word Converter
-

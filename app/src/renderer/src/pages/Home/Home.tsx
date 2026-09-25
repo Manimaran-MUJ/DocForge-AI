@@ -27,10 +27,11 @@ function Home() {
 
     console.log(
       'Markdown AST types:',
-      tree.children.map((node) => ({
+      tree.children.map((node, index) => ({
+        index,
         type: node.type,
-        ordered: node.type === 'list' ? node.ordered : undefined,
-        checked: node.type === 'listItem' ? node.checked : undefined
+        value: node.type === 'code' ? node.value.slice(0, 40) : undefined,
+        lang: node.type === 'code' ? node.lang : undefined
       }))
     )
 
