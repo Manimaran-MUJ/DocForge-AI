@@ -90,12 +90,14 @@ class DocxService {
               children.push(
                 new Paragraph({
                   children: listItemChildren,
+
                   ...(node.ordered
                     ? {
                         numbering: {
                           reference: 'default-numbering',
                           level: 0
                         },
+
                         indent: {
                           left: 720,
                           hanging: 360
@@ -115,6 +117,7 @@ class DocxService {
 
           case 'table': {
             children.push(await this.renderTable(node))
+
             break
           }
 
@@ -164,6 +167,7 @@ class DocxService {
             }
           ]
         },
+
         sections: [
           {
             children
@@ -172,10 +176,13 @@ class DocxService {
       })
 
       const blob = await Packer.toBlob(document)
+
       const arrayBuffer = await blob.arrayBuffer()
+
       const data = new Uint8Array(arrayBuffer)
 
       console.log('DOCX generated successfully')
+
       console.log('DOCX size:', data.length)
 
       return data
@@ -204,30 +211,37 @@ class DocxService {
     const columnWidths = Array(columnCount).fill(columnWidth)
 
     const tableRows = await Promise.all(
-      rows.map(async (row: MarkdownTableRow, rowIndex: number) => {
+      rows.map(async (row: MarkdownTableRow, rowIndex) => {
         const cells: MarkdownTableCell[] = row.children ?? []
 
         const tableCells = await Promise.all(
-          Array.from({ length: columnCount }, async (_, columnIndex) => {
-            const cell = cells[columnIndex]
+          Array.from(
+            {
+              length: columnCount
+            },
+            async (_, columnIndex) => {
+              const cell = cells[columnIndex]
 
-            const alignment = this.getTableAlignment(node.align?.[columnIndex])
+              const alignment = this.getTableAlignment(node.align?.[columnIndex])
 
-            return new TableCell({
-              width: {
-                size: columnWidths[columnIndex],
-                type: 'dxa'
-              },
-              children: [
-                new Paragraph({
-                  alignment,
-                  children: cell
-                    ? await this.renderTableCellContent(cell.children ?? [], rowIndex === 0)
-                    : []
-                })
-              ]
-            })
-          })
+              return new TableCell({
+                width: {
+                  size: columnWidths[columnIndex],
+                  type: 'dxa'
+                },
+
+                children: [
+                  new Paragraph({
+                    alignment,
+
+                    children: cell
+                      ? await this.renderTableCellContent(cell.children ?? [], rowIndex === 0)
+                      : []
+                  })
+                ]
+              })
+            }
+          )
         )
 
         return new TableRow({
@@ -238,11 +252,14 @@ class DocxService {
 
     return new Table({
       rows: tableRows,
+
       width: {
         size: totalWidth,
         type: 'dxa'
       },
+
       columnWidths,
+
       layout: TableLayoutType.FIXED
     })
   }
@@ -272,6 +289,7 @@ class DocxService {
             type: 'root',
             children: nodes
           }),
+
           bold: true
         })
       ]
@@ -326,6 +344,7 @@ class DocxService {
               strike: formatting.strike
             })
           )
+
           break
 
         case 'strong':
@@ -335,6 +354,7 @@ class DocxService {
               bold: true
             }))
           )
+
           break
 
         case 'emphasis':
@@ -344,6 +364,7 @@ class DocxService {
               italics: true
             }))
           )
+
           break
 
         case 'delete':
@@ -353,6 +374,7 @@ class DocxService {
               strike: true
             }))
           )
+
           break
 
         case 'inlineCode':
@@ -365,6 +387,7 @@ class DocxService {
               strike: formatting.strike
             })
           )
+
           break
 
         case 'link': {
@@ -391,6 +414,7 @@ class DocxService {
             children.push(
               new TextRun({
                 text: node.alt ? `[Image: ${node.alt}]` : '[Image]',
+
                 italics: true
               })
             )
@@ -399,9 +423,11 @@ class DocxService {
           }
 
           const maxWidth = 600
+
           const scale = Math.min(1, maxWidth / image.width)
 
           const width = Math.round(image.width * scale)
+
           const height = Math.round(image.height * scale)
 
           const imageType =
@@ -419,6 +445,7 @@ class DocxService {
             children.push(
               new TextRun({
                 text: node.alt ? `[Unsupported image: ${node.alt}]` : '[Unsupported image]',
+
                 italics: true
               })
             )
@@ -430,6 +457,7 @@ class DocxService {
             new ImageRun({
               type: imageType,
               data: image.data,
+
               transformation: {
                 width,
                 height
@@ -446,6 +474,7 @@ class DocxService {
               break: 1
             })
           )
+
           break
       }
     }
@@ -479,6 +508,7 @@ class DocxService {
 
       if (!pngData) {
         console.error('Unable to convert Mermaid SVG to PNG')
+
         return null
       }
 
@@ -489,6 +519,7 @@ class DocxService {
       const scale = Math.min(1, maxWidth / dimensions.width)
 
       const width = Math.round(dimensions.width * scale)
+
       const height = Math.round(dimensions.height * scale)
 
       console.log('Mermaid diagram rendered:', width, 'x', height)
@@ -496,6 +527,7 @@ class DocxService {
       return new ImageRun({
         type: 'png',
         data: pngData,
+
         transformation: {
           width,
           height
@@ -513,6 +545,7 @@ class DocxService {
     height: number
   } {
     const parser = new DOMParser()
+
     const document = parser.parseFromString(svg, 'image/svg+xml')
 
     const svgElement = document.documentElement
@@ -579,6 +612,7 @@ class DocxService {
       const canvas = document.createElement('canvas')
 
       canvas.width = Math.ceil(dimensions.width)
+
       canvas.height = Math.ceil(dimensions.height)
 
       const context = canvas.getContext('2d')
@@ -619,14 +653,23 @@ class DocxService {
     return node.children.map((child) => this.getPlainText(child)).join('')
   }
 
-  async saveDocx(filePath: string, markdownContent: string): Promise<boolean> {
+  async saveDocx(markdownFilePath: string, markdownContent: string): Promise<string | null> {
     const data = await this.generateDocx(markdownContent)
 
     if (!data) {
-      return false
+      return null
     }
 
-    return await window.electronAPI.writeDocxFile(filePath, data)
+    const fileName = markdownFilePath
+      .split(/[\\/]/)
+      .pop()
+      ?.replace(/\.(md|markdown)$/i, '.docx')
+
+    if (!fileName) {
+      return null
+    }
+
+    return await window.electronAPI.saveDocxToDownloads(fileName, data)
   }
 }
 

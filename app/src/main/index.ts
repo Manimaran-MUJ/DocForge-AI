@@ -2,7 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell } from 'electro
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { promises as fs } from 'fs'
+import fs from 'node:fs/promises'
+import path from 'node:path'
 
 function createWindow(): void {
   // Create the browser window.
@@ -93,31 +94,42 @@ ipcMain.handle('dialog:openMarkdownFile', async () => {
   return result.filePaths[0]
 })
 
-ipcMain.handle('dialog:saveDocxFile', async () => {
-  const result = await dialog.showSaveDialog({
-    title: 'Save Word Document',
-    defaultPath: 'Professional.docx',
-    filters: [{ name: 'Word Documents', extensions: ['docx'] }]
-  })
-
-  if (result.canceled) {
-    return null
-  }
-
-  return result.filePath
-})
-
-ipcMain.handle('file:writeDocx', async (_, filePath: string, data: Uint8Array) => {
+async function fileExists(filePath: string): Promise<boolean> {
   try {
-    await fs.writeFile(filePath, Buffer.from(data))
-
-    console.log('DOCX file written successfully')
-    console.log('Output path:', filePath)
-
+    await fs.access(filePath)
     return true
-  } catch (error) {
-    console.error('Unable to write DOCX file:', error)
+  } catch {
     return false
+  }
+}
+
+ipcMain.handle('file:saveDocxToDownloads', async (_, fileName: string, data: Uint8Array) => {
+  try {
+    const downloadsPath = app.getPath('downloads')
+
+    const extension = '.docx'
+
+    const baseName = fileName.endsWith(extension) ? fileName.slice(0, -extension.length) : fileName
+
+    let outputPath = path.join(downloadsPath, `${baseName}${extension}`)
+
+    let counter = 1
+
+    while (await fileExists(outputPath)) {
+      outputPath = path.join(downloadsPath, `${baseName} (${counter})${extension}`)
+
+      counter += 1
+    }
+
+    await fs.writeFile(outputPath, Buffer.from(data))
+
+    console.log('DOCX saved to Downloads:', outputPath)
+
+    return outputPath
+  } catch (error) {
+    console.error('Unable to save DOCX to Downloads:', error)
+
+    return null
   }
 })
 

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import Header from '../../components/common/Header/Header'
 import FilePicker from '../../components/home/FilePicker/FilePicker'
-import OptionPanel from '../../components/home/OptionPanel/OptionPanel'
 import MarkdownPreview from '../../components/home/MarkdownPreview/MarkdownPreview'
 import MarkdownService from '../../services/MarkdownService'
 import DocxService from '../../services/DocxService'
@@ -10,7 +9,6 @@ import MarkdownParserService from '../../services/MarkdownParserService'
 function Home() {
   const [markdownContent, setMarkdownContent] = useState('')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
-  const [outputFile, setOutputFile] = useState<string | null>(null)
 
   const handleMarkdownBrowse = async () => {
     const filePath = await MarkdownService.openMarkdownFile()
@@ -40,31 +38,16 @@ function Home() {
     setMarkdownContent(content)
   }
 
-  const handleOutputBrowse = async () => {
-    const filePath = await MarkdownService.saveDocxFile()
-
-    if (!filePath) {
-      return
-    }
-
-    setOutputFile(filePath)
-  }
-
   const handleConvert = async () => {
-    if (!markdownContent) {
+    if (!selectedFile || !markdownContent) {
       alert('Please select a Markdown file first.')
       return
     }
 
-    if (!outputFile) {
-      alert('Please select an output file first.')
-      return
-    }
+    const outputPath = await DocxService.saveDocx(selectedFile, markdownContent)
 
-    const success = await DocxService.saveDocx(outputFile, markdownContent)
-
-    if (success) {
-      alert('DOCX file generated successfully.')
+    if (outputPath) {
+      alert(`DOCX file downloaded successfully:\n\n${outputPath}`)
     } else {
       alert('Unable to generate DOCX file.')
     }
@@ -76,20 +59,11 @@ function Home() {
 
       <FilePicker
         label="Markdown File"
-        placeholder={selectedFile ?? 'Select Markdown file...'}
+        value={selectedFile ?? ''}
+        placeholder="Select a Markdown file"
         buttonText="Browse"
         onBrowse={handleMarkdownBrowse}
       />
-
-      <FilePicker
-        label="Output File"
-        placeholder="Professional.docx"
-        value={outputFile ?? ''}
-        buttonText="Browse"
-        onBrowse={handleOutputBrowse}
-      />
-
-      <OptionPanel />
 
       <button type="button" onClick={handleConvert}>
         Convert to DOCX
