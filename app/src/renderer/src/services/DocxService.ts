@@ -55,7 +55,13 @@ class DocxService {
                 ? HeadingLevel.HEADING_1
                 : node.depth === 2
                   ? HeadingLevel.HEADING_2
-                  : HeadingLevel.HEADING_3
+                  : node.depth === 3
+                    ? HeadingLevel.HEADING_3
+                    : node.depth === 4
+                      ? HeadingLevel.HEADING_4
+                      : node.depth === 5
+                        ? HeadingLevel.HEADING_5
+                        : HeadingLevel.HEADING_6
 
             children.push(
               new Paragraph({
@@ -71,6 +77,23 @@ class DocxService {
             children.push(
               new Paragraph({
                 children: await this.renderInlineNodes(node.children)
+              })
+            )
+
+            break
+          }
+
+          case 'thematicBreak': {
+            children.push(
+              new Paragraph({
+                border: {
+                  bottom: {
+                    color: '808080',
+                    size: 6,
+                    space: 1,
+                    style: 'single'
+                  }
+                }
               })
             )
 

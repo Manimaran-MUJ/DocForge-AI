@@ -595,6 +595,20 @@ This is the final section of the master test document.
 
 ---
 
+# Heading 1 Test
+
+## Heading 2 Test
+
+### Heading 3 Test
+
+#### Heading 4 Test
+
+##### Heading 5 Test
+
+###### Heading 6 Test
+
+---
+
 # End of DocForge AI Test Suite
 
 **DocForge AI**
