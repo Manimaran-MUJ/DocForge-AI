@@ -70,7 +70,9 @@ function Home() {
         Convert to DOCX
       </button>
 
-      {markdownContent && <MarkdownPreview content={markdownContent} />}
+      {markdownContent && selectedFile && (
+        <MarkdownPreview content={markdownContent} markdownFilePath={selectedFile} />
+      )}
     </>
   )
 }

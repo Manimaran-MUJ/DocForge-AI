@@ -149,45 +149,115 @@ ipcMain.handle('file:readMarkdown', async (_, filePath: string) => {
   }
 })
 
-ipcMain.handle('file:readImage', async (_, imageUrl: string) => {
+ipcMain.handle('file:readImage', async (_, imageUrl: string, markdownFilePath: string) => {
   try {
-    if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-      throw new Error('Only HTTP and HTTPS image URLs are supported.')
+    if (!imageUrl) {
+      return null
     }
 
-    console.log('Fetching image:', imageUrl)
+    /*
+     * Ignore remote images for now.
+     * Local Markdown images are resolved relative
+     * to the Markdown file.
+     */
+    if (
+      imageUrl.startsWith('http://') ||
+      imageUrl.startsWith('https://') ||
+      imageUrl.startsWith('data:')
+    ) {
+      console.warn('Remote/data image is not supported:', imageUrl)
 
-    const response = await fetch(imageUrl)
-
-    if (!response.ok) {
-      throw new Error(`Unable to fetch image. HTTP status: ${response.status}`)
+      return null
     }
 
-    const contentType = response.headers.get('content-type') ?? ''
+    /*
+     * Decode URL-encoded paths such as:
+     *
+     * images/My%20Image.png
+     */
+    let decodedImageUrl = imageUrl
 
-    if (!contentType.startsWith('image/')) {
-      throw new Error(`URL does not return an image: ${contentType}`)
+    try {
+      decodedImageUrl = decodeURIComponent(imageUrl)
+    } catch {
+      decodedImageUrl = imageUrl
     }
 
-    const arrayBuffer = await response.arrayBuffer()
-    const imageData = new Uint8Array(arrayBuffer)
+    /*
+     * Resolve the image relative to the Markdown file.
+     *
+     * Example:
+     *
+     * Markdown:
+     * C:\Docs\Test.md
+     *
+     * Image:
+     * ./images/test.png
+     *
+     * Result:
+     * C:\Docs\images\test.png
+     */
+    const markdownDirectory = path.dirname(markdownFilePath)
 
-    const image = nativeImage.createFromBuffer(Buffer.from(imageData))
+    const imagePath = path.isAbsolute(decodedImageUrl)
+      ? decodedImageUrl
+      : path.resolve(markdownDirectory, decodedImageUrl)
+
+    console.log('Reading Markdown image:', imagePath)
+
+    const data = await fs.readFile(imagePath)
+
+    const image = nativeImage.createFromBuffer(data)
+
+    if (image.isEmpty()) {
+      console.error('Unable to decode image:', imagePath)
+
+      return null
+    }
+
     const size = image.getSize()
 
-    console.log('Image fetched successfully')
-    console.log('Image type:', contentType)
-    console.log('Image size:', imageData.length)
-    console.log('Image dimensions:', size.width, 'x', size.height)
+    const extension = path.extname(imagePath).toLowerCase()
+
+    let contentType: string
+
+    switch (extension) {
+      case '.png':
+        contentType = 'image/png'
+        break
+
+      case '.jpg':
+      case '.jpeg':
+        contentType = 'image/jpeg'
+        break
+
+      case '.gif':
+        contentType = 'image/gif'
+        break
+
+      case '.bmp':
+        contentType = 'image/bmp'
+        break
+
+      case '.webp':
+        contentType = 'image/webp'
+        break
+
+      default:
+        contentType = 'application/octet-stream'
+        break
+    }
+
+    console.log('Markdown image loaded:', imagePath, size)
 
     return {
-      data: imageData,
+      data: new Uint8Array(data),
       contentType,
       width: size.width,
       height: size.height
     }
   } catch (error) {
-    console.error('Unable to read image:', error)
+    console.error('Unable to read Markdown image:', imageUrl, error)
 
     return null
   }

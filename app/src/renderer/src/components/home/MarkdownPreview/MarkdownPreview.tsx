@@ -4,14 +4,16 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import './MarkdownPreview.css'
 
-interface MarkdownPreviewProps {
+type MarkdownPreviewProps = {
   content: string
+  markdownFilePath: string
 }
 
 interface MarkdownImageProps {
   src?: string
   alt?: string
   title?: string
+  markdownFilePath: string
 }
 
 interface MermaidBlockProps {
@@ -24,7 +26,7 @@ mermaid.initialize({
   theme: 'default'
 })
 
-function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
+function MarkdownImage({ src, alt, title, markdownFilePath }: MarkdownImageProps) {
   const [imageSource, setImageSource] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -40,7 +42,9 @@ function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
       setLoading(true)
       setImageSource(null)
 
-      const image = await window.electronAPI.readImage(src)
+      const image = markdownFilePath
+        ? await window.electronAPI.readImage(src, markdownFilePath)
+        : null
 
       if (cancelled) {
         return
@@ -67,7 +71,7 @@ function MarkdownImage({ src, alt, title }: MarkdownImageProps) {
     return () => {
       cancelled = true
     }
-  }, [src])
+  }, [src, markdownFilePath])
 
   if (loading) {
     return <span>Loading image...</span>
@@ -147,7 +151,7 @@ function MermaidBlock({ code }: MermaidBlockProps) {
   )
 }
 
-function MarkdownPreview({ content }: MarkdownPreviewProps) {
+function MarkdownPreview({ content, markdownFilePath }: MarkdownPreviewProps) {
   return (
     <section className="markdown-preview">
       <h2>Markdown Preview</h2>
@@ -156,7 +160,14 @@ function MarkdownPreview({ content }: MarkdownPreviewProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
-            img: MarkdownImage,
+            img: ({ src, alt, title }) => (
+              <MarkdownImage
+                src={src}
+                alt={alt}
+                title={title}
+                markdownFilePath={markdownFilePath}
+              />
+            ),
 
             code: ({ className, children }) => {
               const match = /language-(\w+)/.exec(className ?? '')

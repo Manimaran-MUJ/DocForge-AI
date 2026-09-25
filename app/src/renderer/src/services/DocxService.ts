@@ -1,10 +1,12 @@
 import mermaid from 'mermaid'
 import {
   AlignmentType,
+  Bookmark,
   Document,
   ExternalHyperlink,
   HeadingLevel,
   ImageRun,
+  InternalHyperlink,
   Packer,
   Paragraph,
   Table,
@@ -19,6 +21,7 @@ import type {
   List,
   ListItem,
   PhrasingContent,
+  RootContent,
   Table as MarkdownTable,
   TableCell as MarkdownTableCell,
   TableRow as MarkdownTableRow
@@ -32,7 +35,7 @@ type PlainTextNode = {
   children?: PlainTextNode[]
 }
 
-type RenderedInlineNode = TextRun | ExternalHyperlink | ImageRun
+type RenderedInlineNode = TextRun | ExternalHyperlink | InternalHyperlink | ImageRun
 
 mermaid.initialize({
   startOnLoad: false,
@@ -41,9 +44,45 @@ mermaid.initialize({
 })
 
 class DocxService {
-  async generateDocx(markdownContent: string): Promise<Uint8Array | null> {
+  /*
+   * Current Markdown file path.
+   *
+   * This is used when resolving relative
+   * Markdown image paths.
+   */
+  private currentMarkdownFilePath = ''
+
+  /*
+   * Maps Markdown heading fragments to DOCX bookmark names.
+   *
+   * Example:
+   *
+   * # Introduction
+   *
+   * becomes:
+   *
+   * introduction -> introduction
+   *
+   * [Go to Introduction](#introduction)
+   *
+   * becomes an internal DOCX hyperlink to that bookmark.
+   */
+  private headingBookmarkMap = new Map<string, string>()
+
+  async generateDocx(
+    markdownContent: string,
+    markdownFilePath: string
+  ): Promise<Uint8Array | null> {
     try {
+      this.currentMarkdownFilePath = markdownFilePath
+
       const tree = MarkdownParserService.parse(markdownContent)
+
+      /*
+       * Build the heading -> bookmark map before
+       * rendering links.
+       */
+      this.prepareHeadingBookmarks(tree.children)
 
       const children: Array<Paragraph | Table> = []
 
@@ -63,12 +102,31 @@ class DocxService {
                         ? HeadingLevel.HEADING_5
                         : HeadingLevel.HEADING_6
 
-            children.push(
-              new Paragraph({
-                heading: headingLevel,
-                children: await this.renderInlineNodes(node.children)
-              })
-            )
+            const headingChildren = await this.renderInlineNodes(node.children)
+
+            const bookmarkId = this.headingBookmarkMap.get(this.createHeadingKey(node.children))
+
+            if (bookmarkId) {
+              children.push(
+                new Paragraph({
+                  heading: headingLevel,
+
+                  children: [
+                    new Bookmark({
+                      id: bookmarkId,
+                      children: headingChildren
+                    })
+                  ]
+                })
+              )
+            } else {
+              children.push(
+                new Paragraph({
+                  heading: headingLevel,
+                  children: headingChildren
+                })
+              )
+            }
 
             break
           }
@@ -77,23 +135,6 @@ class DocxService {
             children.push(
               new Paragraph({
                 children: await this.renderInlineNodes(node.children)
-              })
-            )
-
-            break
-          }
-
-          case 'thematicBreak': {
-            children.push(
-              new Paragraph({
-                border: {
-                  bottom: {
-                    color: '808080',
-                    size: 6,
-                    space: 1,
-                    style: 'single'
-                  }
-                }
               })
             )
 
@@ -145,18 +186,33 @@ class DocxService {
 
             break
           }
+
+          case 'thematicBreak': {
+            children.push(
+              new Paragraph({
+                border: {
+                  bottom: {
+                    color: '808080',
+                    size: 6,
+                    space: 1,
+                    style: 'single'
+                  }
+                }
+              })
+            )
+
+            break
+          }
         }
       }
 
       /*
-       * Ordered lists are intentionally NOT defined
-       * through the DOCX numbering system.
+       * Ordered lists intentionally do not use the DOCX
+       * numbering engine.
        *
-       * We generate ordered-list prefixes ourselves
-       * as normal TextRuns.
-       *
-       * This prevents Word/LibreOffice from carrying
-       * numbering state between separate Markdown lists.
+       * The numbers/letters are generated as TextRuns.
+       * This prevents numbering from continuing between
+       * independent Markdown lists.
        */
       const document = new Document({
         sections: [
@@ -186,6 +242,151 @@ class DocxService {
 
       return null
     }
+  }
+
+  /*
+   * Build a lookup table for all Markdown headings.
+   *
+   * Example:
+   *
+   * Introduction
+   *    -> introduction
+   *
+   * Project Goals
+   *    -> project_goals
+   *
+   * Duplicate headings receive unique bookmark names:
+   *
+   * Introduction
+   * Introduction
+   *
+   * -> introduction
+   * -> introduction_2
+   */
+  private prepareHeadingBookmarks(nodes: RootContent[]): void {
+    this.headingBookmarkMap.clear()
+
+    const usedBookmarkNames = new Set<string>()
+
+    for (const node of nodes) {
+      if (node.type !== 'heading' || !node.children) {
+        continue
+      }
+
+      const key = this.createHeadingKey(node.children)
+
+      const baseBookmark = this.createBookmarkName(key)
+
+      let bookmarkName = baseBookmark
+
+      let counter = 2
+
+      while (usedBookmarkNames.has(bookmarkName)) {
+        bookmarkName = `${baseBookmark}_${counter}`
+
+        counter += 1
+      }
+
+      usedBookmarkNames.add(bookmarkName)
+
+      /*
+       * Store only the first heading for a given
+       * Markdown fragment.
+       *
+       * This matches normal fragment-link behavior.
+       */
+      if (!this.headingBookmarkMap.has(key)) {
+        this.headingBookmarkMap.set(key, bookmarkName)
+      }
+    }
+  }
+
+  /*
+   * Convert heading text into the form used for
+   * Markdown fragment matching.
+   *
+   * Example:
+   *
+   * "Project Goals"
+   * -> "project-goals"
+   *
+   * "My API & Testing"
+   * -> "my-api-testing"
+   */
+  private createHeadingKey(nodes: readonly PhrasingContent[]): string {
+    const text = this.getInlineText(nodes)
+
+    return text
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+  }
+
+  /*
+   * DOCX bookmark names are more restrictive than
+   * normal Markdown fragment identifiers.
+   *
+   * We therefore convert:
+   *
+   * project-goals
+   *
+   * into:
+   *
+   * project_goals
+   */
+  private createBookmarkName(headingKey: string): string {
+    let bookmarkName = headingKey.replace(/[^A-Za-z0-9_]/g, '_').replace(/_+/g, '_')
+
+    if (!bookmarkName) {
+      bookmarkName = 'bookmark'
+    }
+
+    if (/^[0-9]/.test(bookmarkName)) {
+      bookmarkName = `_${bookmarkName}`
+    }
+
+    /*
+     * Keep the bookmark name reasonably short.
+     */
+    bookmarkName = bookmarkName.slice(0, 40)
+
+    return bookmarkName
+  }
+
+  private getInlineText(nodes: readonly PhrasingContent[]): string {
+    let result = ''
+
+    for (const node of nodes) {
+      switch (node.type) {
+        case 'text':
+          result += node.value
+          break
+
+        case 'inlineCode':
+          result += node.value
+          break
+
+        case 'strong':
+        case 'emphasis':
+        case 'delete':
+        case 'link':
+          result += this.getInlineText(node.children)
+          break
+
+        case 'image':
+          result += node.alt ?? ''
+          break
+
+        case 'break':
+          result += ' '
+          break
+      }
+    }
+
+    return result
   }
 
   private async renderBlockquote(node: Blockquote, depth: number): Promise<Paragraph[]> {
@@ -223,16 +424,6 @@ class DocxService {
     return paragraphs
   }
 
-  /*
-   * Converts a number into:
-   *
-   * 1 -> a
-   * 2 -> b
-   * 3 -> c
-   *
-   * 26 -> z
-   * 27 -> aa
-   */
   private toLowerAlpha(value: number): string {
     let result = ''
     let current = value
@@ -248,14 +439,6 @@ class DocxService {
     return result
   }
 
-  /*
-   * Converts a number into lowercase Roman numerals.
-   *
-   * 1 -> i
-   * 2 -> ii
-   * 3 -> iii
-   * 4 -> iv
-   */
   private toLowerRoman(value: number): string {
     const romanValues: Array<{
       value: number
@@ -321,6 +504,7 @@ class DocxService {
     for (const item of romanValues) {
       while (remaining >= item.value) {
         result += item.symbol
+
         remaining -= item.value
       }
     }
@@ -328,17 +512,6 @@ class DocxService {
     return result
   }
 
-  /*
-   * Determines the visible prefix for an ordered
-   * Markdown list based on nesting depth.
-   *
-   * Level 0 -> 1. 2. 3.
-   * Level 1 -> a. b. c.
-   * Level 2 -> i. ii. iii.
-   * Level 3 -> 1. 2. 3.
-   *
-   * This pattern can continue safely for deeper levels.
-   */
   private getOrderedListPrefix(index: number, depth: number): string {
     const level = depth % 4
 
@@ -375,14 +548,6 @@ class DocxService {
         paragraphs.push(paragraph)
       }
 
-      /*
-       * Render nested lists after the parent
-       * list-item paragraph.
-       *
-       * Every nested list starts its own numbering
-       * sequence because its index is calculated
-       * locally inside renderList().
-       */
       for (const child of item.children) {
         if (child.type === 'list') {
           paragraphs.push(...(await this.renderList(child, depth + 1)))
@@ -408,14 +573,6 @@ class DocxService {
 
       const isTaskItem = item.checked !== null && item.checked !== undefined
 
-      /*
-       * Task list items:
-       *
-       * ☑ Completed task
-       * ☐ Pending task
-       *
-       * No additional bullet is added.
-       */
       if (isTaskItem) {
         inlineChildren.unshift(
           new TextRun({
@@ -424,12 +581,6 @@ class DocxService {
         )
       }
 
-      /*
-       * Ordered list:
-       *
-       * We create the number/letter as normal text
-       * instead of using DOCX numbering.
-       */
       if (ordered) {
         const prefix = this.getOrderedListPrefix(itemIndex, depth)
 
@@ -448,15 +599,14 @@ class DocxService {
         })
       }
 
-      /*
-       * Unordered list.
-       *
-       * Task lists don't get a bullet because their
-       * checkbox itself acts as the marker.
-       */
       return new Paragraph({
         children: inlineChildren,
 
+        /*
+         * Task lists already have their own
+         * checkbox character, so don't add
+         * another bullet.
+         */
         ...(isTaskItem
           ? {}
           : {
@@ -673,6 +823,41 @@ class DocxService {
             })
           ).filter((child): child is TextRun => child instanceof TextRun)
 
+          /*
+           * Markdown fragment link:
+           *
+           * [Go to Introduction](#introduction)
+           *
+           * becomes a real DOCX internal hyperlink.
+           */
+          if (node.url.startsWith('#')) {
+            const target = node.url.slice(1)
+
+            const normalizedTarget = this.normalizeFragment(target)
+
+            const bookmarkId = this.headingBookmarkMap.get(normalizedTarget)
+
+            if (bookmarkId) {
+              children.push(
+                new InternalHyperlink({
+                  anchor: bookmarkId,
+
+                  children: linkChildren
+                })
+              )
+            } else {
+              /*
+               * If the Markdown points to an anchor
+               * that doesn't exist in the document,
+               * preserve the visible link text instead
+               * of generating a broken DOCX hyperlink.
+               */
+              children.push(...linkChildren)
+            }
+
+            break
+          }
+
           children.push(
             new ExternalHyperlink({
               link: node.url,
@@ -684,7 +869,13 @@ class DocxService {
         }
 
         case 'image': {
-          const image = await window.electronAPI.readImage(node.url)
+          /*
+           * Resolve the image relative to the
+           * currently opened Markdown file.
+           */
+          const image = this.currentMarkdownFilePath
+            ? await window.electronAPI.readImage(node.url, this.currentMarkdownFilePath)
+            : null
 
           if (!image) {
             children.push(
@@ -754,6 +945,33 @@ class DocxService {
     }
 
     return children
+  }
+
+  /*
+   * Normalize a Markdown fragment before looking it up.
+   *
+   * #Introduction
+   * #introduction
+   * #Introduction!
+   *
+   * are normalized consistently.
+   */
+  private normalizeFragment(fragment: string): string {
+    let decoded = fragment
+
+    try {
+      decoded = decodeURIComponent(fragment)
+    } catch {
+      decoded = fragment
+    }
+
+    return decoded
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
   }
 
   private async renderMermaidDiagram(code: string): Promise<ImageRun | null> {
@@ -916,7 +1134,7 @@ class DocxService {
   }
 
   async saveDocx(markdownFilePath: string, markdownContent: string): Promise<string | null> {
-    const data = await this.generateDocx(markdownContent)
+    const data = await this.generateDocx(markdownContent, markdownFilePath)
 
     if (!data) {
       return null
