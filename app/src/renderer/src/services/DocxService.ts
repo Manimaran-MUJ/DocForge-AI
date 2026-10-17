@@ -134,6 +134,7 @@ class DocxService {
           case 'paragraph': {
             children.push(
               new Paragraph({
+                widowControl: true,
                 children: await this.renderInlineNodes(node.children)
               })
             )
@@ -548,12 +549,11 @@ class DocxService {
       if (child.type === 'paragraph') {
         paragraphs.push(
           new Paragraph({
+            keepLines: true,
             children: await this.renderInlineNodes(child.children),
-
             indent: {
               left: leftIndent
             },
-
             border: {
               left: {
                 color: '808080',
@@ -742,7 +742,7 @@ class DocxService {
 
         return new Paragraph({
           children: inlineChildren,
-
+          keepLines: true,
           indent: {
             left: 720 * (depth + 1)
           }
@@ -839,6 +839,7 @@ class DocxService {
         )
 
         return new TableRow({
+          cantSplit: true,
           children: tableCells
         })
       })
