@@ -11,7 +11,7 @@ interface FilePickerProps {
 function FilePicker({ label, placeholder, value, buttonText, onBrowse }: FilePickerProps) {
   return (
     <div className="file-picker">
-      <label>{label}</label>
+      {label && <label>{label}</label>}
 
       <div className="file-picker-container">
         <input type="text" value={value ?? ''} placeholder={placeholder} readOnly />

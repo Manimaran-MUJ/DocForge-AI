@@ -1,0 +1,377 @@
+.home-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+  color: #172033;
+}
+
+.home-content {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 48px 0 64px;
+}
+
+/* --------------------------------
+   Hero
+-------------------------------- */
+
+.hero-section {
+  max-width: 760px;
+  margin-bottom: 40px;
+}
+
+.hero-eyebrow,
+.section-eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hero-eyebrow {
+  color: #5267d9;
+}
+
+.hero-section h1 {
+  margin: 0;
+  color: #172033;
+  font-size: 42px;
+  line-height: 1.15;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+}
+
+.hero-section p {
+  max-width: 680px;
+  margin: 14px 0 0;
+  color: #667085;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+/* --------------------------------
+   Sections
+-------------------------------- */
+
+.file-section,
+.preview-section {
+  margin-top: 32px;
+}
+
+.section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 21px;
+  font-weight: 700;
+}
+
+.section-heading p {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 14px;
+}
+
+.section-eyebrow {
+  margin-bottom: 7px;
+  color: #667085;
+}
+
+/* --------------------------------
+   File Picker Card
+-------------------------------- */
+
+.file-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e6ef;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.05);
+}
+
+.file-picker-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.file-picker-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  background: #eef1ff;
+  border-radius: 13px;
+  font-size: 24px;
+}
+
+.file-picker-content {
+  min-width: 0;
+}
+
+.file-picker-content h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.file-picker-content p {
+  margin: 5px 0 0;
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* --------------------------------
+   Selected File
+-------------------------------- */
+
+.selected-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+}
+
+.selected-file-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  background: #dcfce7;
+  border-radius: 50%;
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.selected-file-label,
+.selected-file-name {
+  display: block;
+}
+
+.selected-file-label {
+  margin-bottom: 2px;
+  color: #166534;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.selected-file-name {
+  overflow: hidden;
+  color: #14532d;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------
+   Conversion Button
+-------------------------------- */
+
+.conversion-section {
+  display: flex;
+  justify-content: center;
+  margin: 28px 0 48px;
+}
+
+.convert-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 210px;
+  padding: 14px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #5267d9;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(82, 103, 217, 0.25);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.convert-button:hover {
+  background: #4356c4;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(82, 103, 217, 0.3);
+}
+
+.convert-button:active {
+  transform: translateY(0);
+}
+
+.convert-arrow {
+  font-size: 18px;
+}
+
+/* --------------------------------
+   Preview
+-------------------------------- */
+
+.preview-card {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e6ef;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(16, 24, 40, 0.05);
+}
+
+.preview-card .markdown-preview {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* --------------------------------
+   Responsive
+-------------------------------- */
+
+@media (max-width: 700px) {
+  .home-content {
+    width: min(100% - 28px, 1180px);
+    padding: 32px 0 48px;
+  }
+
+  .hero-section h1 {
+    font-size: 34px;
+  }
+
+  .file-picker-header {
+    align-items: flex-start;
+  }
+}
+
+
+/* Disabled conversion button */
+.convert-button:disabled {
+  background: #aab4e8;
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.8;
+}
+
+.convert-button:disabled:hover {
+  background: #aab4e8;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Conversion spinner */
+.conversion-spinner {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: conversion-spin 0.7s linear infinite;
+}
+
+@keyframes conversion-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Success and error notifications */
+.conversion-notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: -24px 0 36px;
+  padding: 16px;
+  border: 1px solid;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.conversion-notification.success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.conversion-notification.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.success .notification-icon {
+  background: #dcfce7;
+}
+
+.error .notification-icon {
+  background: #fee2e2;
+}
+
+.conversion-notification p {
+  flex: 1;
+  min-width: 0;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+
+.notification-dismiss {
+  flex-shrink: 0;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.notification-dismiss:hover {
+  opacity: 1;
+}
+
+@media (max-width: 700px) {
+  .conversion-notification {
+    gap: 8px;
+    padding: 12px;
+  }
+}

@@ -166,12 +166,30 @@ class DocxService {
               if (mermaidImage) {
                 children.push(
                   new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: {
+                      before: 120,
+                      after: 200
+                    },
                     children: [mermaidImage]
                   })
                 )
               } else {
                 children.push(
                   new Paragraph({
+                    shading: {
+                      type: 'clear',
+                      fill: 'F3F5F7'
+                    },
+                    indent: {
+                      left: 180,
+                      right: 180
+                    },
+                    spacing: {
+                      before: 100,
+                      after: 180,
+                      line: 240
+                    },
                     children: this.renderCodeBlock(node.value)
                   })
                 )
@@ -179,6 +197,19 @@ class DocxService {
             } else {
               children.push(
                 new Paragraph({
+                  shading: {
+                    type: 'clear',
+                    fill: 'F3F5F7'
+                  },
+                  indent: {
+                    left: 180,
+                    right: 180
+                  },
+                  spacing: {
+                    before: 100,
+                    after: 180,
+                    line: 240
+                  },
                   children: this.renderCodeBlock(node.value)
                 })
               )
@@ -214,9 +245,128 @@ class DocxService {
        * This prevents numbering from continuing between
        * independent Markdown lists.
        */
+
       const document = new Document({
+        styles: {
+          default: {
+            document: {
+              run: {
+                font: 'Aptos',
+                size: 22,
+                color: '242424'
+              },
+              paragraph: {
+                spacing: {
+                  before: 0,
+                  after: 180,
+                  line: 288
+                }
+              }
+            },
+            heading1: {
+              run: {
+                font: 'Aptos Display',
+                size: 36,
+                bold: true,
+                color: '1565C0'
+              },
+              paragraph: {
+                spacing: {
+                  before: 320,
+                  after: 160
+                },
+                keepNext: true
+              }
+            },
+            heading2: {
+              run: {
+                font: 'Aptos Display',
+                size: 30,
+                bold: true,
+                color: '1976D2'
+              },
+              paragraph: {
+                spacing: {
+                  before: 260,
+                  after: 120
+                },
+                keepNext: true
+              }
+            },
+            heading3: {
+              run: {
+                font: 'Aptos',
+                size: 26,
+                bold: true,
+                color: '2F75B5'
+              },
+              paragraph: {
+                spacing: {
+                  before: 200,
+                  after: 100
+                },
+                keepNext: true
+              }
+            },
+            heading4: {
+              run: {
+                font: 'Aptos',
+                size: 24,
+                bold: true,
+                color: '4472C4'
+              },
+              paragraph: {
+                spacing: {
+                  before: 160,
+                  after: 80
+                },
+                keepNext: true
+              }
+            },
+            heading5: {
+              run: {
+                font: 'Aptos',
+                size: 22,
+                bold: true,
+                color: '4472C4'
+              },
+              paragraph: {
+                spacing: {
+                  before: 120,
+                  after: 80
+                },
+                keepNext: true
+              }
+            },
+            heading6: {
+              run: {
+                font: 'Aptos',
+                size: 22,
+                bold: true,
+                color: '595959'
+              },
+              paragraph: {
+                spacing: {
+                  before: 120,
+                  after: 80
+                },
+                keepNext: true
+              }
+            }
+          }
+        },
         sections: [
           {
+            properties: {
+              page: {
+                margin: {
+                  top: 1440,
+                  right: 1440,
+                  bottom: 1440,
+                  left: 1440
+                }
+              }
+            },
             children
           }
         ]
@@ -655,11 +805,29 @@ class DocxService {
                   size: columnWidths[columnIndex],
                   type: 'dxa'
                 },
-
+                shading:
+                  rowIndex === 0
+                    ? {
+                        type: 'clear',
+                        fill: 'D9EAF7'
+                      }
+                    : {
+                        type: 'clear',
+                        fill: 'FFFFFF'
+                      },
+                margins: {
+                  top: 100,
+                  bottom: 100,
+                  left: 120,
+                  right: 120
+                },
                 children: [
                   new Paragraph({
                     alignment,
-
+                    spacing: {
+                      before: 40,
+                      after: 40
+                    },
                     children: cell
                       ? await this.renderTableCellContent(cell.children ?? [], rowIndex === 0)
                       : []
@@ -726,23 +894,20 @@ class DocxService {
 
   private renderCodeBlock(code: string): TextRun[] {
     const lines = code.split(/\r?\n/)
-
     const runs: TextRun[] = []
 
     lines.forEach((line, index) => {
       runs.push(
         new TextRun({
-          text: line,
-          font: 'Consolas'
+          text: line.length > 0 ? line : ' ',
+          font: 'Consolas',
+          size: 18,
+          color: '242424'
         })
       )
 
       if (index < lines.length - 1) {
-        runs.push(
-          new TextRun({
-            break: 1
-          })
-        )
+        runs.push(new TextRun({ break: 1 }))
       }
     })
 

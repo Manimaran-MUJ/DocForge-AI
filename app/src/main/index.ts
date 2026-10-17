@@ -155,100 +155,100 @@ ipcMain.handle('file:readImage', async (_, imageUrl: string, markdownFilePath: s
       return null
     }
 
-    /*
-     * Ignore remote images for now.
-     * Local Markdown images are resolved relative
-     * to the Markdown file.
-     */
-    if (
-      imageUrl.startsWith('http://') ||
-      imageUrl.startsWith('https://') ||
-      imageUrl.startsWith('data:')
-    ) {
-      console.warn('Remote/data image is not supported:', imageUrl)
+    let data: Buffer
+    let extension: string
 
-      return null
+    // Support remote HTTP/HTTPS images.
+    if (imageUrl.startsWith('https://') || imageUrl.startsWith('http://')) {
+      const response = await fetch(imageUrl)
+
+      if (!response.ok) {
+        console.error('Unable to download remote image:', imageUrl, response.status)
+        return null
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      data = Buffer.from(arrayBuffer)
+
+      const contentType = response.headers.get('content-type')?.split(';')[0].trim().toLowerCase()
+
+      const extensionByContentType: Record<string, string> = {
+        'image/png': '.png',
+        'image/jpeg': '.jpg',
+        'image/gif': '.gif',
+        'image/bmp': '.bmp',
+        'image/webp': '.webp',
+        'image/svg+xml': '.svg'
+      }
+
+      extension =
+        extensionByContentType[contentType ?? ''] ??
+        path.extname(new URL(imageUrl).pathname).toLowerCase()
+    } else if (imageUrl.startsWith('data:')) {
+      // Support embedded base64 images.
+      const match = imageUrl.match(/^data:(image\/[^;,]+);base64,(.+)$/s)
+
+      if (!match) {
+        console.warn('Unsupported data image format')
+        return null
+      }
+
+      data = Buffer.from(match[2], 'base64')
+
+      const extensionByContentType: Record<string, string> = {
+        'image/png': '.png',
+        'image/jpeg': '.jpg',
+        'image/gif': '.gif',
+        'image/bmp': '.bmp',
+        'image/webp': '.webp',
+        'image/svg+xml': '.svg'
+      }
+
+      extension = extensionByContentType[match[1].toLowerCase()] ?? ''
+    } else {
+      // Resolve local image paths relative to the Markdown file.
+      let decodedImageUrl = imageUrl
+
+      try {
+        decodedImageUrl = decodeURIComponent(imageUrl)
+      } catch {
+        // Keep the original path if decoding fails.
+      }
+
+      const markdownDirectory = path.dirname(markdownFilePath)
+
+      const imagePath = path.isAbsolute(decodedImageUrl)
+        ? decodedImageUrl
+        : path.resolve(markdownDirectory, decodedImageUrl)
+
+      console.log('Reading local Markdown image:', imagePath)
+
+      data = await fs.readFile(imagePath)
+      extension = path.extname(imagePath).toLowerCase()
     }
 
-    /*
-     * Decode URL-encoded paths such as:
-     *
-     * images/My%20Image.png
-     */
-    let decodedImageUrl = imageUrl
-
-    try {
-      decodedImageUrl = decodeURIComponent(imageUrl)
-    } catch {
-      decodedImageUrl = imageUrl
-    }
-
-    /*
-     * Resolve the image relative to the Markdown file.
-     *
-     * Example:
-     *
-     * Markdown:
-     * C:\Docs\Test.md
-     *
-     * Image:
-     * ./images/test.png
-     *
-     * Result:
-     * C:\Docs\images\test.png
-     */
-    const markdownDirectory = path.dirname(markdownFilePath)
-
-    const imagePath = path.isAbsolute(decodedImageUrl)
-      ? decodedImageUrl
-      : path.resolve(markdownDirectory, decodedImageUrl)
-
-    console.log('Reading Markdown image:', imagePath)
-
-    const data = await fs.readFile(imagePath)
-
+    // Decode the image and obtain its dimensions.
     const image = nativeImage.createFromBuffer(data)
 
     if (image.isEmpty()) {
-      console.error('Unable to decode image:', imagePath)
-
+      console.error('Unable to decode image:', imageUrl)
       return null
     }
 
     const size = image.getSize()
 
-    const extension = path.extname(imagePath).toLowerCase()
-
-    let contentType: string
-
-    switch (extension) {
-      case '.png':
-        contentType = 'image/png'
-        break
-
-      case '.jpg':
-      case '.jpeg':
-        contentType = 'image/jpeg'
-        break
-
-      case '.gif':
-        contentType = 'image/gif'
-        break
-
-      case '.bmp':
-        contentType = 'image/bmp'
-        break
-
-      case '.webp':
-        contentType = 'image/webp'
-        break
-
-      default:
-        contentType = 'application/octet-stream'
-        break
+    const contentTypeByExtension: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.webp': 'image/webp'
     }
 
-    console.log('Markdown image loaded:', imagePath, size)
+    const contentType = contentTypeByExtension[extension] ?? 'application/octet-stream'
+
+    console.log('Markdown image loaded:', imageUrl, size)
 
     return {
       data: new Uint8Array(data),
@@ -258,7 +258,6 @@ ipcMain.handle('file:readImage', async (_, imageUrl: string, markdownFilePath: s
     }
   } catch (error) {
     console.error('Unable to read Markdown image:', imageUrl, error)
-
     return null
   }
 })
